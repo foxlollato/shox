@@ -28,44 +28,10 @@ void welcome(pid_t thisPid){	//welcome messages could be set here
 
 }
 
-void runShox(){
-	pid_t  childPid;	
-	int status =1;
-
-	char *command = malloc(sizeof(char)*CMDBUF);
-	char **args = malloc(sizeof(char*)*ARGBUF);	
-
-	struct passwd *pw=getpwuid(getuid());//get home directory path to implement cd
-	char *homedir=pw->pw_dir;
-
-	for(;;){ //for ever :P
-
-		printf("\ncmd> ");
-
-		fgets(command,CMDBUF,stdin); //listening to input
-		parse(command,args); //parse command into strings vector
-
-
-		status=strcmp(args[0],"exit"); //check if desire to give up ;*
-
-		if(status==0){ //then, give up and exit.
-			free(command);
-			free(args);
-			exit(EXIT_SUCCESS);
-		}
-
-		//cd - change directory implementation
-		if(strcmp(args[0],"cd")==0){
-			if(args[1]==NULL){ //if directory not indicated, head to home directory
-				chdir(homedir);
-
-			}else{
-				if(chdir(args[1])!=0){ //head to directory
-					perror("[ERROR]");
-				}
-			}
-		}else{
-			if((childPid = fork())< 0){// Check if fork created the child pid
+void runCommand(char* command, char**args){
+  pid_t  childPid;
+  int status=1;
+  if((childPid = fork())< 0){// Check if fork created the child pid
 				fprintf(stderr,"Not possible to create child process\n");
 				exit(EXIT_FAILURE);
 			}
@@ -81,8 +47,69 @@ void runShox(){
 				fprintf(stderr,"Not possible to fork\n");
 			}else{
 				while(wait(&status) != childPid); //and finally, wait for the child quits playing.
-			}	
+			}
+  
+}
+
+void checkCommand(char*command, char **args){
+  int i=0;
+  while(args[i]!=NULL){
+    
+    if(strcmp(args[i],"<")==0){
+      printf("<\n");
+	//runInCommand(command,args,i);    
+    }
+    if(strcmp(args[i],">")==0){
+      printf(">\n");
+	//runOutCommand(command,args,i);      
+    }
+    if(strcmp(args[i],"|")==0){
+      printf("|\n");
+	//runPipeCommand(command,args,i);
+    }
+      i++;
+  }
+  printf("runOk\n");
+  runCommand(command,args);
+}
+void runShox(){
+
+	char *command = malloc(sizeof(char)*CMDBUF);
+	char **args = malloc(sizeof(char*)*ARGBUF);	
+
+	struct passwd *pw=getpwuid(getuid());//get home directory path to implement cd
+	char *homedir=pw->pw_dir;
+
+	for(;;){ //for ever :P
+
+		printf("\ncmd> ");
+
+		fgets(command,CMDBUF,stdin); //listening to input
+		parse(command,args); //parse command into strings vector
+
+
+		
+
+		if(strcmp(args[0],"exit")==0){ //check if desire to give up,then, give up and exit.
+			free(command);
+			free(args);
+			printf("See you soon!\n");
+			exit(EXIT_SUCCESS);
+		}
+
+		//cd - change directory implementation
+		if(strcmp(args[0],"cd")==0){
+			if(args[1]==NULL){ //if directory not indicated, head to home directory
+				chdir(homedir);
+
+			}else{
+				if(chdir(args[1])!=0){ //head to directory
+					perror("[ERROR]");
+				}
+			}
+		}else{
+			checkCommand(command,args);
+			
 		}
 	}
-}	
-
+}
