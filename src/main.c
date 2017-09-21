@@ -12,5 +12,6 @@ int main (int argc, char *argv[]){
 	welcome(getpid());
 
 	runShox();
+
 	return EXIT_SUCCESS;
 }
