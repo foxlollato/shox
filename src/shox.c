@@ -118,7 +118,7 @@ void runOut(char *command, char ** args, int i){
 		close(fdout);
 		close(_stdout);
 		
-		if(execvp(command, &args[i-2]) < 0 ){
+		if(execvp(command, args) < 0 ){
 			fprintf(stderr, "Not possible to execute %s\n", command);
 			perror("[ERROR]");
 			exit(EXIT_FAILURE);
