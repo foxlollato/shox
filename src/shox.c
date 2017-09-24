@@ -4,7 +4,9 @@
 #include <sys/wait.h>
 #include <string.h>
 #include <pwd.h>
-
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include "shox.h"
 
 void  parse(char *command, char **args) //parse command line string into a strings vector **args. This step is required to properly use of EXECV()
@@ -30,47 +32,134 @@ void welcome(pid_t thisPid){	//welcome messages could be set here
 
 void runCommand(char* command, char**args){
   pid_t  childPid;
-  int status=1;
-  if((childPid = fork())< 0){// Check if fork created the child pid
-				fprintf(stderr,"Not possible to create child process\n");
+  int status;
+  	
+  	if((childPid = fork())< 0){// Check if fork created the child pid
+		fprintf(stderr,"Not possible to create child process\n");
+		exit(EXIT_FAILURE);
+	}
+	else if(childPid==0){	//Then, check if Im the child. Now im able to run commands.
+		printf("Child process PID is %d\n", getpid()); //if yes, return child PID
+		if(execvp(command, args) < 0){ // run the command
+			fprintf(stderr,"Not possible to execute %s\n", command); //if something run bad, print errors.
+			perror("[ERROR]");
+			exit(EXIT_FAILURE); // then, kill the child. (Yes, i am mean.)
+		}
+		}else if (childPid < 0){
+			fprintf(stderr,"Not possible to fork\n");
+		}else{
+			while(wait(&status) != childPid); //and finally, wait for the child quits playing.
+		}
+}
+
+void runIn(char *command, char ** args, int i){
+	pid_t childPid;
+	int status, fdin, _stdin;
+
+	_stdin = dup(0);
+	fdin=open(args[i+1], O_RDONLY);
+	fdin=dup(_stdin);
+	close(fdin);
+	
+	if(args[i+1] == NULL){
+		fprintf(stderr,"shox: syntax error near unexpected token `newline'");
+	}else{
+	if(fdin == -1){
+		fprintf(stderr, "File %s not exist\n", args[i+1]);
+		exit(EXIT_FAILURE);
+	}
+		if((childPid = fork())<0){
+			fprintf(stderr,"Not possible to create child process\n");
+			exit(EXIT_FAILURE);
+		}
+		else if(childPid==0){
+			printf("Child process PID is %d\n", getpid());
+			if(execvp(command, &args[i]) < 0 ){
+				fprintf(stderr, "Not possible to execute %s\n", command);
+				perror("[ERROR]");
 				exit(EXIT_FAILURE);
 			}
-			else if(childPid==0){	//Then, check if Im the child. Now im able to run commands.
-				printf("Child process PID is %d\n", getpid()); //if yes, return child PID
+		}else if (childPid < 0){
+			fprintf(stderr,"Not possible to fork\n");
+		}else{
+			dup2(_stdin,0);
+			close(_stdin);
+			while(wait(&status) != childPid);
+		}
+	}	
+}
 
-				if(execvp(command, args) < 0){ // if im a child, and im able to run the command
-					fprintf(stderr,"Not possible to execute %s\n", command); //if something run bad, print errors.
-					perror("[ERROR]");
-					exit(EXIT_FAILURE); // then, kill the child. (Yes, i am mean.)
-				}
-			}else if (childPid < 0){
-				fprintf(stderr,"Not possible to fork\n");
-			}else{
-				while(wait(&status) != childPid); //and finally, wait for the child quits playing.
-			}
-  
+void runOut(char *command, char ** args, int i){
+	pid_t childPid;
+	int status, fdout, _stdout, _stdin;
+	
+	_stdout = dup(1);
+	fdout=open(args[i+1], O_RDWR);
+
+	if(args[i+1] == NULL){
+		fprintf(stderr,"shox: syntax error near unexpected token `newline'");
+	}else{
+	if(fdout == -1){
+		fprintf(stderr, "File %s not exist, creating file.\n", args[i+1]);
+		fdout = open(args[i+1], O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+
+		if(fdout == -1){
+			fprintf(stderr, "Error while creating %s\n", args[i+1]);
+			exit(EXIT_FAILURE);
+		}else{
+			printf("File %s created with success. Check it's content.\n", args[i+1]);
+		}
+	}
+	fdout=dup(_stdout);
+	close(fdout);
+
+	if((childPid = fork())<0){
+		fprintf(stderr,"Not possible to create child process\n");
+		exit(EXIT_FAILURE);
+	}
+	else if(childPid==0){
+		
+		printf("Child process PID is %d\n", getpid());
+		fdout=dup(_stdout);
+		close(fdout);
+		if(execvp(command, &args[i]) < 0 ){
+			fprintf(stderr, "Not possible to execute %s\n", command);
+			perror("[ERROR]");
+			exit(EXIT_FAILURE);
+		}
+	}else if (childPid < 0){
+		fprintf(stderr,"Not possible to fork\n");
+	}else{
+		dup2(_stdout,1);
+		close(_stdout);
+		while(wait(&status) != childPid);
+	}
+	}	
 }
 
 void checkCommand(char*command, char **args){
-  int i=0;
-  while(args[i]!=NULL){
-    
-    if(strcmp(args[i],"<")==0){
-      printf("<\n");
-	//runInCommand(command,args,i);    
-    }
-    if(strcmp(args[i],">")==0){
-      printf(">\n");
-	//runOutCommand(command,args,i);      
-    }
-    if(strcmp(args[i],"|")==0){
-      printf("|\n");
-	//runPipeCommand(command,args,i);
-    }
-      i++;
-  }
-  printf("runOk\n");
-  runCommand(command,args);
+	int i=0;
+	int check=0;
+	while(args[i]!=NULL){
+
+		if(strcmp(args[i],"<")==0){
+			check++;
+			runIn(command,args,i);
+		}
+		if(strcmp(args[i],">")==0){
+			check++;
+			runOut(command,args,i);
+		}
+		if(strcmp(args[i],"|")==0){
+			check++;      
+			//runPipe(command,args,i);
+		}
+		i++;
+	}
+	if(check==0){
+		runCommand(command,args); 
+	}
+
 }
 void runShox(){
 
@@ -88,7 +177,7 @@ void runShox(){
 		parse(command,args); //parse command into strings vector
 
 
-		
+
 
 		if(strcmp(args[0],"exit")==0){ //check if desire to give up,then, give up and exit.
 			free(command);
@@ -109,7 +198,7 @@ void runShox(){
 			}
 		}else{
 			checkCommand(command,args);
-			
+
 		}
 	}
 }
