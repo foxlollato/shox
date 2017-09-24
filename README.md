@@ -8,8 +8,14 @@ Running conditions:
 >> Commands must be on a single line.
 >> Arguments must be separated by whitespace.
 >> No quoting arguments or escaping whitespace.
->> Piping and redirection not implementeds yet.
+>> Redirection in development, piping not yet.
 >> All commands runs directly from your system path or current directory, but not cd, that is implemented on it.
+* E.g.
+* ls -lah
+* ls /etc
+* cat /etc/profile
+* echo > file
+* cat < file
 
 Contributing
 ------------
