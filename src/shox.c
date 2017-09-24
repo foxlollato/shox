@@ -39,7 +39,6 @@ void runCommand(char* command, char**args){
 		exit(EXIT_FAILURE);
 	}
 	else if(childPid==0){	//Then, check if Im the child. Now im able to run commands.
-		printf("Child process PID is %d\n", getpid()); //if yes, return child PID
 		if(execvp(command, args) < 0){ // run the command
 			fprintf(stderr,"Not possible to execute %s\n", command); //if something run bad, print errors.
 			perror("[ERROR]");
@@ -73,7 +72,6 @@ void runIn(char *command, char ** args, int i){
 			exit(EXIT_FAILURE);
 		}
 		else if(childPid==0){
-			printf("Child process PID is %d\n", getpid());
 			if(execvp(command, &args[i]) < 0 ){
 				fprintf(stderr, "Not possible to execute %s\n", command);
 				perror("[ERROR]");
@@ -91,14 +89,11 @@ void runIn(char *command, char ** args, int i){
 
 void runOut(char *command, char ** args, int i){
 	pid_t childPid;
-	int status, fdout, _stdout, _stdin;
+	int status, fdout, _stdout;
 	
 	_stdout = dup(1);
 	fdout=open(args[i+1], O_RDWR);
-
-	if(args[i+1] == NULL){
-		fprintf(stderr,"shox: syntax error near unexpected token `newline'");
-	}else{
+	
 	if(fdout == -1){
 		fprintf(stderr, "File %s not exist, creating file.\n", args[i+1]);
 		fdout = open(args[i+1], O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
@@ -110,19 +105,20 @@ void runOut(char *command, char ** args, int i){
 			printf("File %s created with success. Check it's content.\n", args[i+1]);
 		}
 	}
-	fdout=dup(_stdout);
-	close(fdout);
 
+	if(args[i+1] == NULL){
+		fprintf(stderr,"shox: syntax error near unexpected token `newline'");
+	}else{
+	dup2(fdout,1);
 	if((childPid = fork())<0){
 		fprintf(stderr,"Not possible to create child process\n");
 		exit(EXIT_FAILURE);
 	}
 	else if(childPid==0){
-		
-		printf("Child process PID is %d\n", getpid());
-		fdout=dup(_stdout);
 		close(fdout);
-		if(execvp(command, &args[i]) < 0 ){
+		close(_stdout);
+		
+		if(execvp(command, &args[i-2]) < 0 ){
 			fprintf(stderr, "Not possible to execute %s\n", command);
 			perror("[ERROR]");
 			exit(EXIT_FAILURE);
@@ -131,7 +127,6 @@ void runOut(char *command, char ** args, int i){
 		fprintf(stderr,"Not possible to fork\n");
 	}else{
 		dup2(_stdout,1);
-		close(_stdout);
 		while(wait(&status) != childPid);
 	}
 	}	
