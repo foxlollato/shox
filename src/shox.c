@@ -90,6 +90,14 @@ void runIn(char *command, char ** args, int i){
 void runOut(char *command, char ** args, int i){
 	pid_t childPid;
 	int status, fdout, _stdout;
+
+	char *argsOut[i];
+
+	int x;
+
+	for(x=0; x<i; x++){
+		argsOut[x]=args[x];
+	}
 	
 	_stdout = dup(1);
 	fdout=open(args[i+1], O_RDWR);
@@ -118,7 +126,7 @@ void runOut(char *command, char ** args, int i){
 		close(fdout);
 		close(_stdout);
 		
-		if(execvp(command, args) < 0 ){
+		if(execvp(command, argsOut) < 0 ){
 			fprintf(stderr, "Not possible to execute %s\n", command);
 			perror("[ERROR]");
 			exit(EXIT_FAILURE);
